@@ -1,22 +1,25 @@
 import React from 'react';
-import { Container, Typography } from '@mui/material';
-import Torneos from './Torneos';
-import Usuarios from './Usuarios';
-import Rankings from './Rankings';
-import Resultados from './Resultados';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import Usuarios from './components/Usuarios';
+import Home from './components/Home';
+import Torneos from './components/Torneos';
+import Rankings from './components/Rankings';
+import Resultados from './components/Resultados';
 
-function App() {
-  return (
-    <Container>
-      <Typography variant="h2" gutterBottom>
-        Golf App
-      </Typography>
-      <Torneos />
-      <Usuarios />
-      <Rankings />
-      <Resultados />
-    </Container>
-  );
-}
+const App = () => {
+    return (
+        <Router>
+            <Navbar />
+            <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/usuarios" element={<Usuarios />} />
+                <Route path="/torneos" element={<Torneos />} />
+                <Route path="/rankings" element={<Rankings />} />
+                <Route path="/resultados" element={<Resultados />} />
+            </Routes>
+        </Router>
+    );
+};
 
 export default App;

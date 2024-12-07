@@ -1,188 +1,87 @@
-import express from 'express';
-import cors from 'cors'; // Importar cors
-import { body, validationResult } from 'express-validator';
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import { adminUser, secret } from './auth.js';
-import mysql from 'mysql';
+const express = require('express');
+const cors = require('cors');
+const mysql = require('mysql');
+const bodyParser = require('body-parser');
 
 const app = express();
-app.use(cors()); // Usar cors
+app.use(cors());
+app.use(bodyParser.json());
 
-const db = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: 'Pab305290Ban', // Añade tu contraseña aquí
-  database: 'GolfApp'
+const connection = mysql.createConnection({
+    host: 'localhost',
+    user: 'root',
+    password: 'Pab305290Ban',
+    database: 'GolfApp'
 });
 
-db.connect((err) => {
-  if (err) throw err;
-  console.log('Conectado a la base de datos MySQL');
+connection.connect(err => {
+    if (err) {
+        console.error('Error connecting to the database:', err);
+        return;
+    }
+    console.log('Connected to the database');
 });
 
-app.use(express.json());
-
-// Middleware de autenticación
-function authenticate(req, res, next) {
-  const token = req.header('Authorization').replace('Bearer ', '');
-  try {
-    const decoded = jwt.verify(token, secret);
-    req.user = decoded;
-    next();
-  } catch (err) {
-    res.status(401).send('Autenticación fallida');
-  }
-}
-
-// Middleware de autorización
-function authorizeAdmin(req, res, next) {
-  if (req.user && req.user.username === adminUser.username) {
-    next();
-  } else {
-    res.status(403).send('No autorizado');
-  }
-}
-
-// Rutas para torneos
-app.get('/torneos', (req, res) => {
-  const sql = 'SELECT * FROM Torneos';
-  db.query(sql, (err, result) => {
-    if (err) throw err;
-    res.send(result);
-  });
+// Obtener todos los usuarios
+app.get('/api/usuarios', (req, res) => {
+    const query = 'SELECT * FROM Usuarios';
+    connection.query(query, (error, results) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        res.json(results);
+    });
 });
 
-app.post('/torneos', [
-  authenticate,
-  authorizeAdmin,
-  body('name').notEmpty().withMessage('El nombre es requerido'),
-  body('date').isISO8601().withMessage('Fecha inválida'),
-  body('location').notEmpty().withMessage('La ubicación es requerida')
-], (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
-  const newTournament = {
-    Nombre: req.body.name,
-    Fecha: req.body.date,
-    Ubicacion: req.body.location
-  };
-  const sql = 'INSERT INTO Torneos SET ?';
-  db.query(sql, newTournament, (err, result) => {
-    if (err) throw err;
-    res.send('Torneo añadido...');
-  });
+// Crear un nuevo torneo
+app.post('/api/torneos', (req, res) => {
+    const { nombre, fecha, ubicacion } = req.body;
+    const query = 'INSERT INTO Torneos (Nombre, Fecha, Ubicacion) VALUES (?, ?, ?)';
+    connection.query(query, [nombre, fecha, ubicacion], (error, results) => {
+        if (error) {
+            console.error('Error creating tournament:', error);
+            return res.status(500).send(error);
+        }
+        res.json({ id: results.insertId, nombre, fecha, ubicacion });
+    });
 });
 
-// Rutas para usuarios
-app.get('/usuarios', (req, res) => {
-  const sql = 'SELECT * FROM Usuarios';
-  db.query(sql, (err, result) => {
-    if (err) throw err;
-    res.send(result);
-  });
+// Obtener todos los torneos
+app.get('/api/torneos', (req, res) => {
+    const query = 'SELECT * FROM Torneos';
+    connection.query(query, (error, results) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        res.json(results);
+    });
 });
 
-app.post('/usuarios', [
-  authenticate,
-  authorizeAdmin,
-  body('username').notEmpty().withMessage('El nombre de usuario es requerido'),
-  body('password').notEmpty().withMessage('La contraseña es requerida'),
-  body('handicap').isInt().withMessage('El handicap debe ser un número entero')
-], (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
-  const newUser = {
-    username: req.body.username,
-    password: bcrypt.hashSync(req.body.password, 10),
-    handicap: req.body.handicap
-  };
-  const sql = 'INSERT INTO Usuarios SET ?';
-  db.query(sql, newUser, (err, result) => {
-    if (err) throw err;
-    res.send('Usuario añadido...');
-  });
+// Inscribir un jugador en un torneo
+app.post('/api/torneos/:torneoId/jugadores', (req, res) => {
+    const { torneoId } = req.params;
+    const { jugadorId } = req.body;
+    const query = 'INSERT INTO Rankings (TorneoID, JugadorID, Posicion) VALUES (?, ?, ?)';
+    connection.query(query, [torneoId, jugadorId, null], (error, results) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        res.json({ torneoId, jugadorId });
+    });
 });
 
-// Rutas para rankings
-app.get('/rankings', (req, res) => {
-  const sql = 'SELECT * FROM Rankings';
-  db.query(sql, (err, result) => {
-    if (err) throw err;
-    res.send(result);
-  });
+// Registrar un score
+app.post('/api/resultados', (req, res) => {
+    const { torneoId, jugadorId, hoyo, score } = req.body;
+    const query = 'INSERT INTO Resultados (TorneoID, JugadorID, Hoyo, Score) VALUES (?, ?, ?, ?)';
+    connection.query(query, [torneoId, jugadorId, hoyo, score], (error, results) => {
+        if (error) {
+            return res.status(500).send(error);
+        }
+        res.json({ torneoId, jugadorId, hoyo, score });
+    });
 });
 
-app.post('/rankings', [
-  authenticate,
-  authorizeAdmin,
-  body('userId').notEmpty().withMessage('El ID del usuario es requerido'),
-  body('score').isNumeric().withMessage('El puntaje debe ser un número')
-], (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
-  const newRanking = {
-    userId: req.body.userId,
-    score: req.body.score
-  };
-  const sql = 'INSERT INTO Rankings SET ?';
-  db.query(sql, newRanking, (err, result) => {
-    if (err) throw err;
-    res.send('Ranking añadido...');
-  });
+app.listen(3001, () => {
+    console.log('Server running on port 3001');
 });
-
-// Rutas para resultados
-app.get('/resultados', (req, res) => {
-  const sql = 'SELECT * FROM Resultados';
-  db.query(sql, (err, result) => {
-    if (err) throw err;
-    res.send(result);
-  });
-});
-
-app.post('/resultados', [
-  authenticate,
-  authorizeAdmin,
-  body('tournamentId').notEmpty().withMessage('El ID del torneo es requerido'),
-  body('userId').notEmpty().withMessage('El ID del usuario es requerido'),
-  body('position').isNumeric().withMessage('La posición debe ser un número')
-], (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
-  const newResult = {
-    tournamentId: req.body.tournamentId,
-    userId: req.body.userId,
-    position: req.body.position
-  };
-  const sql = 'INSERT INTO Resultados SET ?';
-  db.query(sql, newResult, (err, result) => {
-    if (err) throw err;
-    res.send('Resultado añadido...');
-  });
-});
-
-// Middleware de manejo de errores
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).send('Algo salió mal!');
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en el puerto ${PORT}`);
-});
-
-export default app;
