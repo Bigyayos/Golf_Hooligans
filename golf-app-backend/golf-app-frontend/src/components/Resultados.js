@@ -115,7 +115,7 @@ const Resultados = () => {
                                                         </Typography>
                                                         <Grid container spacing={1}>
                                                             {hoyos.map(hoyo => (
-                                                                <Grid item xs={4} key={hoyo.Numero}>
+                                                                <Grid item xs={4} key={`${jugador.ID}-${hoyo.Numero}`}>
                                                                     <TextField
                                                                         label={`Hoyo ${hoyo.Numero}`}
                                                                         type="number"

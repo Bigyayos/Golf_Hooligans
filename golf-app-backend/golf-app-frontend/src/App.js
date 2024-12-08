@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import Home from './Home';
+import Home from './components/Home';
 import Torneos from './components/Torneos';
 import Rankings from './components/Rankings';
 import Resultados from './components/Resultados';
