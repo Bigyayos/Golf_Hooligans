@@ -1,11 +1,11 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import Navbar from './components/Navbar';
-import Usuarios from './components/Usuarios';
-import Home from './components/Home';
+import Home from './Home';
 import Torneos from './components/Torneos';
 import Rankings from './components/Rankings';
 import Resultados from './components/Resultados';
+import Usuarios from './components/Usuarios';
+import Navbar from './components/Navbar';
 
 const App = () => {
     return (

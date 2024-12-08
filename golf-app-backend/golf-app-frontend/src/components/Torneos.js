@@ -1,20 +1,24 @@
 // src/components/Torneos.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Container, Typography, Button, TextField, Grid, Card, CardContent, CardActions, List, ListItem, ListItemText, Snackbar, Alert } from '@mui/material';
+import { Container, Typography, Button, TextField, Grid, Card, CardContent, CardActions, Checkbox, FormControlLabel, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, List, ListItem, ListItemText, MenuItem } from '@mui/material';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 
-const TournamentSchema = Yup.object().shape({
-    name: Yup.string().required('Nombre del torneo es requerido'),
-    date: Yup.date().required('Fecha del torneo es requerida'),
-    location: Yup.string().required('Ubicación del torneo es requerida')
+const GameSchema = Yup.object().shape({
+    name: Yup.string().required('Nombre del juego es requerido'),
+    date: Yup.date().required('Fecha del juego es requerida'),
+    location: Yup.string().required('Ubicación del juego es requerida'),
+    campoId: Yup.number().required('Campo es requerido')
 });
 
 const Torneos = () => {
     const [tournaments, setTournaments] = useState([]);
     const [players, setPlayers] = useState([]);
+    const [campos, setCampos] = useState([]);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+    const [editTournament, setEditTournament] = useState(null);
+    const [deleteTournament, setDeleteTournament] = useState(null);
 
     useEffect(() => {
         // Fetch players (users) from the API
@@ -34,47 +38,83 @@ const Torneos = () => {
             .catch(error => {
                 console.error('Error fetching tournaments:', error);
             });
+
+        // Fetch campos from the API
+        axios.get('http://localhost:3001/api/campos')
+            .then(response => {
+                setCampos(response.data);
+            })
+            .catch(error => {
+                console.error('Error fetching campos:', error);
+            });
     }, []);
 
     const handleCreateTournament = (values, { setSubmitting, resetForm }) => {
+        const selectedPlayers = players.filter(player => player.selected).map(player => player.ID);
         axios.post('http://localhost:3001/api/torneos', {
             nombre: values.name,
             fecha: values.date,
-            ubicacion: values.location
+            ubicacion: values.location,
+            campoId: values.campoId,
+            jugadores: selectedPlayers
         })
         .then(response => {
             setTournaments([...tournaments, response.data]);
             resetForm();
-            setSnackbar({ open: true, message: 'Torneo creado con éxito', severity: 'success' });
+            setSnackbar({ open: true, message: 'Juego creado con éxito', severity: 'success' });
         })
         .catch(error => {
-            console.error('Error creating tournament:', error);
-            setSnackbar({ open: true, message: 'Error al crear el torneo', severity: 'error' });
+            console.error('Error creating game:', error);
+            setSnackbar({ open: true, message: 'Error al crear el juego', severity: 'error' });
         })
         .finally(() => {
             setSubmitting(false);
         });
     };
 
-    const handleRegisterPlayer = (tournamentId, player) => {
-        axios.post(`http://localhost:3001/api/torneos/${tournamentId}/jugadores`, {
-            jugadorId: player.ID
+    const handleUpdateTournament = (values, { setSubmitting }) => {
+        axios.put(`http://localhost:3001/api/torneos/${editTournament.ID}`, {
+            nombre: values.name,
+            fecha: values.date,
+            ubicacion: values.location,
+            campoId: values.campoId
         })
         .then(response => {
             const updatedTournaments = tournaments.map(tournament => {
-                if (tournament.ID === tournamentId) {
-                    tournament.players = tournament.players || [];
-                    tournament.players.push(player);
+                if (tournament.ID === editTournament.ID) {
+                    return response.data;
                 }
                 return tournament;
             });
             setTournaments(updatedTournaments);
-            setSnackbar({ open: true, message: 'Jugador inscrito con éxito', severity: 'success' });
+            setEditTournament(null);
+            setSnackbar({ open: true, message: 'Torneo actualizado con éxito', severity: 'success' });
         })
         .catch(error => {
-            console.error('Error registering player:', error);
-            setSnackbar({ open: true, message: 'Error al inscribir el jugador', severity: 'error' });
+            console.error('Error updating tournament:', error);
+            setSnackbar({ open: true, message: 'Error al actualizar el torneo', severity: 'error' });
+        })
+        .finally(() => {
+            setSubmitting(false);
         });
+    };
+
+    const handleDeleteTournament = () => {
+        axios.delete(`http://localhost:3001/api/torneos/${deleteTournament.ID}`)
+        .then(response => {
+            const updatedTournaments = tournaments.filter(tournament => tournament.ID !== deleteTournament.ID);
+            setTournaments(updatedTournaments);
+            setDeleteTournament(null);
+            setSnackbar({ open: true, message: 'Torneo eliminado con éxito', severity: 'success' });
+        })
+        .catch(error => {
+            console.error('Error deleting tournament:', error);
+            setSnackbar({ open: true, message: 'Error al eliminar el torneo', severity: 'error' });
+        });
+    };
+
+    const handlePlayerSelect = (playerId) => {
+        setPlayers(players.map(player => player.ID === playerId ? { ...player, selected: !player.selected } : player));
     };
 
     const handleCloseSnackbar = () => {
@@ -84,26 +124,43 @@ const Torneos = () => {
     return (
         <Container>
             <Typography variant="h4" gutterBottom>
-                Torneos
+                Crear Nuevo Juego
             </Typography>
             <Card variant="outlined" style={{ marginBottom: '20px' }}>
                 <CardContent>
-                    <Typography variant="h5" gutterBottom>
-                        Crear Nuevo Torneo
-                    </Typography>
                     <Formik
-                        initialValues={{ name: '', date: '', location: '' }}
-                        validationSchema={TournamentSchema}
+                        initialValues={{ name: '', date: '', location: '', campoId: '' }}
+                        validationSchema={GameSchema}
                         onSubmit={handleCreateTournament}
                     >
                         {({ isSubmitting, errors, touched }) => (
                             <Form>
-                                <Field name="name" as={TextField} label="Nombre del Torneo" fullWidth margin="normal" error={touched.name && !!errors.name} helperText={touched.name && errors.name} />
-                                <Field name="date" as={TextField} label="Fecha del Torneo" type="date" fullWidth margin="normal" InputLabelProps={{ shrink: true }} error={touched.date && !!errors.date} helperText={touched.date && errors.date} />
-                                <Field name="location" as={TextField} label="Ubicación del Torneo" fullWidth margin="normal" error={touched.location && !!errors.location} helperText={touched.location && errors.location} />
+                                <Field name="name" as={TextField} label="Nombre del Juego" fullWidth margin="normal" error={touched.name && !!errors.name} helperText={touched.name && errors.name} />
+                                <Field name="date" as={TextField} label="Fecha del Juego" type="date" fullWidth margin="normal" InputLabelProps={{ shrink: true }} error={touched.date && !!errors.date} helperText={touched.date && errors.date} />
+                                <Field name="location" as={TextField} label="Ubicación del Juego" fullWidth margin="normal" error={touched.location && !!errors.location} helperText={touched.location && errors.location} />
+                                <Field name="campoId" as={TextField} label="Campo ID" select fullWidth margin="normal" error={touched.campoId && !!errors.campoId} helperText={touched.campoId && errors.campoId}>
+                                    {campos.map(campo => (
+                                        <MenuItem key={campo.ID} value={campo.ID}>
+                                            {campo.Nombre}
+                                        </MenuItem>
+                                    ))}
+                                </Field>
+                                <Typography variant="h6" gutterBottom style={{ marginTop: '20px' }}>
+                                    Seleccionar Jugadores
+                                </Typography>
+                                <Grid container spacing={2}>
+                                    {players.map(player => (
+                                        <Grid item xs={12} sm={6} md={4} key={player.ID}>
+                                            <FormControlLabel
+                                                control={<Checkbox checked={player.selected || false} onChange={() => handlePlayerSelect(player.ID)} />}
+                                                label={`${player.Nombre} - ${player.CorreoElectronico}`}
+                                            />
+                                        </Grid>
+                                    ))}
+                                </Grid>
                                 <CardActions>
                                     <Button type="submit" variant="contained" color="primary" disabled={isSubmitting}>
-                                        Crear Torneo
+                                        Crear Juego
                                     </Button>
                                 </CardActions>
                             </Form>
@@ -112,34 +169,7 @@ const Torneos = () => {
                 </CardContent>
             </Card>
             <Typography variant="h5" gutterBottom>
-                Jugadores
-            </Typography>
-            <Grid container spacing={2}>
-                {players.map(player => (
-                    <Grid item xs={12} sm={6} md={4} key={player.ID}>
-                        <Card variant="outlined">
-                            <CardContent>
-                                <Typography variant="h6">
-                                    {player.Nombre}
-                                </Typography>
-                                <Typography color="textSecondary">
-                                    {player.CorreoElectronico}
-                                </Typography>
-                                <Typography color="textSecondary">
-                                    Handicap: {player.handicap}
-                                </Typography>
-                            </CardContent>
-                            <CardActions>
-                                <Button variant="contained" color="secondary" onClick={() => handleRegisterPlayer(tournaments.length, player)}>
-                                    Inscribir
-                                </Button>
-                            </CardActions>
-                        </Card>
-                    </Grid>
-                ))}
-            </Grid>
-            <Typography variant="h5" gutterBottom style={{ marginTop: '20px' }}>
-                Torneos Actuales
+                Juegos Actuales
             </Typography>
             <Grid container spacing={2}>
                 {tournaments.map(tournament => (
@@ -155,6 +185,9 @@ const Torneos = () => {
                                 <Typography color="textSecondary">
                                     Ubicación: {tournament.Ubicacion}
                                 </Typography>
+                                <Typography color="textSecondary">
+                                    Campo: {campos.find(campo => campo.ID === tournament.CampoID)?.Nombre}
+                                </Typography>
                                 <Typography variant="h6" gutterBottom style={{ marginTop: '10px' }}>
                                     Jugadores Inscritos
                                 </Typography>
@@ -166,6 +199,14 @@ const Torneos = () => {
                                     ))}
                                 </List>
                             </CardContent>
+                            <CardActions>
+                                <Button variant="contained" color="primary" onClick={() => setEditTournament(tournament)}>
+                                    Editar
+                                </Button>
+                                <Button variant="contained" color="secondary" onClick={() => setDeleteTournament(tournament)}>
+                                    Eliminar
+                                </Button>
+                            </CardActions>
                         </Card>
                     </Grid>
                 ))}
@@ -175,6 +216,59 @@ const Torneos = () => {
                     {snackbar.message}
                 </Alert>
             </Snackbar>
+            {editTournament && (
+                <Dialog open={true} onClose={() => setEditTournament(null)}>
+                    <DialogTitle>Editar Juego</DialogTitle>
+                    <DialogContent>
+                        <Formik
+                            initialValues={{ name: editTournament.Nombre, date: editTournament.Fecha, location: editTournament.Ubicacion, campoId: editTournament.CampoID }}
+                            validationSchema={GameSchema}
+                            onSubmit={handleUpdateTournament}
+                        >
+                            {({ isSubmitting, errors, touched }) => (
+                                <Form>
+                                    <Field name="name" as={TextField} label="Nombre del Juego" fullWidth margin="normal" error={touched.name && !!errors.name} helperText={touched.name && errors.name} />
+                                    <Field name="date" as={TextField} label="Fecha del Juego" type="date" fullWidth margin="normal" InputLabelProps={{ shrink: true }} error={touched.date && !!errors.date} helperText={touched.date && errors.date} />
+                                    <Field name="location" as={TextField} label="Ubicación del Juego" fullWidth margin="normal" error={touched.location && !!errors.location} helperText={touched.location && errors.location} />
+                                    <Field name="campoId" as={TextField} label="Campo ID" select fullWidth margin="normal" error={touched.campoId && !!errors.campoId} helperText={touched.campoId && errors.campoId}>
+                                        {campos.map(campo => (
+                                            <MenuItem key={campo.ID} value={campo.ID}>
+                                                {campo.Nombre}
+                                            </MenuItem>
+                                        ))}
+                                    </Field>
+                                    <DialogActions>
+                                        <Button onClick={() => setEditTournament(null)} color="primary">
+                                            Cancelar
+                                        </Button>
+                                        <Button type="submit" variant="contained" color="primary" disabled={isSubmitting}>
+                                            Guardar
+                                        </Button>
+                                    </DialogActions>
+                                </Form>
+                            )}
+                        </Formik>
+                    </DialogContent>
+                </Dialog>
+            )}
+            {deleteTournament && (
+                <Dialog open={true} onClose={() => setDeleteTournament(null)}>
+                    <DialogTitle>Eliminar Juego</DialogTitle>
+                    <DialogContent>
+                        <DialogContentText>
+                            ¿Estás seguro de que deseas eliminar el juego {deleteTournament.Nombre}?
+                        </DialogContentText>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setDeleteTournament(null)} color="primary">
+                            Cancelar
+                        </Button>
+                        <Button onClick={handleDeleteTournament} variant="contained" color="secondary">
+                            Eliminar
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+            )}
         </Container>
     );
 };

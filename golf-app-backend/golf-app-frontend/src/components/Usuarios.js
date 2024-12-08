@@ -1,12 +1,13 @@
 // src/components/Usuarios.js
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Container, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from '@mui/material';
+import { Container, Typography, Grid, Card, CardContent } from '@mui/material';
 
 const Usuarios = () => {
     const [usuarios, setUsuarios] = useState([]);
 
     useEffect(() => {
+        // Fetch users from the API
         axios.get('http://localhost:3001/api/usuarios')
             .then(response => {
                 setUsuarios(response.data);
@@ -19,32 +20,27 @@ const Usuarios = () => {
     return (
         <Container>
             <Typography variant="h4" gutterBottom>
-                Lista de Usuarios
+                Usuarios
             </Typography>
-            <TableContainer component={Paper}>
-                <Table>
-                    <TableHead>
-                        <TableRow>
-                            <TableCell>ID</TableCell>
-                            <TableCell>Nombre</TableCell>
-                            <TableCell>Correo Electrónico</TableCell>
-                            <TableCell>Handicap</TableCell>
-                            <TableCell>Username</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {usuarios.map(usuario => (
-                            <TableRow key={usuario.ID}>
-                                <TableCell>{usuario.ID}</TableCell>
-                                <TableCell>{usuario.Nombre}</TableCell>
-                                <TableCell>{usuario.CorreoElectronico}</TableCell>
-                                <TableCell>{usuario.handicap}</TableCell>
-                                <TableCell>{usuario.username}</TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </TableContainer>
+            <Grid container spacing={2}>
+                {usuarios.map(usuario => (
+                    <Grid item xs={12} sm={6} md={4} key={usuario.ID}>
+                        <Card variant="outlined">
+                            <CardContent>
+                                <Typography variant="h6">
+                                    {usuario.Nombre}
+                                </Typography>
+                                <Typography color="textSecondary">
+                                    Correo: {usuario.CorreoElectronico}
+                                </Typography>
+                                <Typography color="textSecondary">
+                                    Handicap: {usuario.handicap}
+                                </Typography>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                ))}
+            </Grid>
         </Container>
     );
 };
